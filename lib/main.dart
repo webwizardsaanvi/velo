@@ -85,7 +85,7 @@ class _MyNavScaffoldState extends State<MyNavScaffold> {
     setState(() {
       _selectedIndex = index;
     });
-  }
+  }//ji
 
   @override
   Widget build(BuildContext context) {
