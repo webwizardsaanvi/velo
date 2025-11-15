@@ -37,19 +37,39 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
+class MyHomePage extends StatefulWidget { const MyHomePage({super.key, required this.title}); final String title; @override State<MyHomePage> createState() => _MyHomePageState(); }
 class _MyHomePageState extends State<MyHomePage> {
+  int index = 0;
+  Set<int> selectedProviders = {};  
+
   @override
   Widget build(BuildContext context) {
-    return const MyNavScaffold();
+    final pages = [
+      Channels(
+        title: "Channels",
+        selectedProviders: selectedProviders,
+      ),
+      ProviderPage(
+        selectedProviders: selectedProviders,
+        onSelectionChanged: (newSet) {
+          setState(() {
+            selectedProviders = newSet;
+          });
+        },
+      ),
+    ];
+
+    return Scaffold(
+      body: pages[index],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: index,
+        onTap: (i) => setState(() => index = i),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.tv), label: "Guide"),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Providers"),
+        ],
+      ),
+    );
   }
 }
 
@@ -74,40 +94,50 @@ Future<List<Map<String, dynamic>>> fetchShows(int provider, String? genre, Strin
   return [];
 }
 
-Future<Map<String, List<Map<String, dynamic>>>> getAllChannels() async{{
-  Map<String, List<Map<String, dynamic>>> channels = {};
-  for (var genre in selectedProviders){
-    String? tmdbg;
-    String? country;
-    if (genre == 'kdrama') {
-      country = 'KR';
-      tmdbg = '18';
-    }
-    else if (genre == 'animation'){
-       tmdbg = '16';
-       }
-    else if (genre == 'comedy'){tmdbg = '35';} //Stand Up
-    else if (genre == 'sci-fi-fantasy'){tmdbg = '10765';} //Fantaverse
-    else if (genre == 'kids'){tmdbg = '10762';} //Bopple
-    else if (genre == 'documentary'){tmdbg = '99';} //lenscape
-    else if (genre == 'drama'){tmdbg = '18';} //Velvet
-    else if (genre == 'horror'){tmdbg = '27';} // Frightline
-    else if (genre == 'mystery'){tmdbg = '9648';} //CipherCast
-    else if (genre == 'reality-tv'){tmdbg = '10764';} //Mosaic
-    else if (genre == 'romance'){tmdbg = '10749';} //Rose
-    else if (genre == 'family'){tmdbg = '10751';} //FamilyTV
-    else if (genre == 'soap'){tmdbg = '10766';} //LatherLive
-    else if (genre == 'music-vids'){tmdbg = '10402';} //Wavenote
-    else if (genre == 'action-adventure'){tmdbg = '10759';} //Cliffhanger
+Future<Map<String, List<Map<String, dynamic>>>> getAllChannels(
+  Set<int> selectedProviders,
+) async {
+  // 1. Genre definitions
+  final Map<String, Map<String, String?>> genreMap = {
+    'kdrama':            { 'genre': '18',    'country': 'KR' },
+    'animation':         { 'genre': '16',    'country': null },
+    'comedy':            { 'genre': '35',    'country': null },
+    'sci-fi-fantasy':    { 'genre': '10765', 'country': null },
+    'kids':              { 'genre': '10762', 'country': null },
+    'documentary':       { 'genre': '99',    'country': null },
+    'drama':             { 'genre': '18',    'country': null },
+    'horror':            { 'genre': '27',    'country': null },
+    'mystery':           { 'genre': '9648',  'country': null },
+    'reality-tv':        { 'genre': '10764', 'country': null },
+    'romance':           { 'genre': '10749', 'country': null },
+    'family':            { 'genre': '10751', 'country': null },
+    'soap':              { 'genre': '10766', 'country': null },
+    'music-vids':        { 'genre': '10402', 'country': null },
+    'action-adventure':  { 'genre': '10759', 'country': null },
+  };
+
+  // 2. Final result
+  final Map<String, List<Map<String, dynamic>>> channels = {};
+
+  // 3. Build each genre channel
+  for (var genreKey in genreMap.keys) {
+    final genreData = genreMap[genreKey]!;
+    final String? tmdbGenre = genreData['genre'];
+    final String? country = genreData['country'];
+
     List<Map<String, dynamic>> channelShows = [];
-    for (var provider in selectedProviders){
-      final shows = await fetchShows(provider, tmdbg, country);
+
+    // 4. Only apply selected providers
+    for (var provider in selectedProviders) {
+      final shows = await fetchShows(provider, tmdbGenre, country);
       channelShows.addAll(shows);
     }
-    channels[genre] = channelShows;
+
+    channels[genreKey] = channelShows;
   }
+
   return channels;
-}}
+}
 
 class MyNavScaffold extends StatefulWidget {
   const MyNavScaffold({super.key});
@@ -137,7 +167,7 @@ class _MyNavScaffoldState extends State<MyNavScaffold> {
 
   final List<Widget> _pages = [
     //Placeholder(), // Not used, dummy
-    const Channels(title: 'Channels'),
+    const Channels(title: 'Channels', selectedProviders: {8, 119}), // Example with Netflix and Amazon Prime Video
     Placeholder(),
     Placeholder(),
     Placeholder()
@@ -169,25 +199,47 @@ class _MyNavScaffoldState extends State<MyNavScaffold> {
 }
 
 class Channels extends StatefulWidget {
-  const Channels({super.key, required this.title});
+  const Channels({super.key, required this.title, required this.selectedProviders});
   final String title;
+  final Set<int> selectedProviders;
 
   @override
   State<Channels> createState() => ChannelsState();
 }
-
 class ChannelsState extends State<Channels> {
-  @override
+  late Future<Map<String, List<Map<String, dynamic>>>> guideByChannel;
 
+  @override
+  void initState() {
+    super.initState();
+    guideByChannel = getAllChannels(widget.selectedProviders);
+
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Access selectedProviders via widget.selectedProviders
     //return const MyNavScaffold();
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: guideByChannel.entries.map((channelEntry) {
+      body: FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
+        future: guideByChannel,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No channels available'));
+          }
+          final channels = snapshot.data!;
+          return SingleChildScrollView(
+            child: Column(
+              children: channels.entries.map((channelEntry) {
             final channelName = channelEntry.key;
             final shows = channelEntry.value;
 
@@ -213,18 +265,41 @@ class ChannelsState extends State<Channels> {
                       final double width = runtime * pixelsPerMinute;
                       
                       return Container(
-                        width: width
-                      )
-                    })
-              )
-                
+                        width: width,
+                        margin: EdgeInsets.all(2),
+                        padding: EdgeInsets.all(8),
+                        color: Colors.blue[200],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              show['title'],
+                              style: TextStyle(fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              "${show['provider']}",
+                              style: TextStyle(fontSize: 10),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),    
+              ],
+            );
+          }).toList(),
         ),
-        ),
-
-      ),
+      );
+      },
+    ),
     );
-  }
-} 
+}
+}
+
+
 String providertostring(int providernum) {
   if(providernum == 8) {
     return 'Netflix';
@@ -245,6 +320,52 @@ String providertostring(int providernum) {
    else {
     return 'Other';
   }
-  
 }
+
+
+class ProviderPage extends StatelessWidget {
+  final Set<int> selectedProviders;
+  final ValueChanged<Set<int>> onSelectionChanged;
+  
+  ProviderPage({
+    super.key,
+    required this.selectedProviders,
+    required this.onSelectionChanged,
+  });
+
+  final Map<int, String> providerMap = {
+    8: 'Netflix',
+    119: 'Amazon Prime Video',
+    15: 'Hulu',
+    9: 'Disney Plus',
+    384: 'HBO Max',
+    531: 'Paramount Plus',
+    192: 'Youtube',
+    // Apple TV is excluded as it doesn't provide data
+  };
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Select Providers")),
+      body: ListView(
+        children: providerMap.entries.map((entry) {
+          final id = entry.key;
+          final name = entry.value;
+
+          return CheckboxListTile(
+            title: Text(name),
+            value: selectedProviders.contains(id),
+            onChanged: (bool? check) {
+              final newSet = Set<int>.from(selectedProviders);
+              check == true ? newSet.add(id) : newSet.remove(id);
+              onSelectionChanged(newSet);
+            },
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
 //ITS OKAYYYY ദ്ദി(ᵔᗜᵔ) 
