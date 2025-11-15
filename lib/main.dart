@@ -124,12 +124,16 @@ class ChannelsState extends State<Channels> {
         title: Text(widget.title),
         Row(
           children: [
-            SizedBox(
-              width: 100 //width should be equal to time
+            Expanded(
+              int flex: 1,
             )
+          ]
+            
+        ),
+        )
           ],
         )
       ), 
-      );
+      )
   }
 }
