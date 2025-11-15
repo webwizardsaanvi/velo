@@ -122,6 +122,13 @@ class ChannelsState extends State<Channels> {
       return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        Row(
+          children: [
+            SizedBox(
+              width: 100 //width should be equal to time
+            )
+          ],
+        )
       ), 
       );
   }
