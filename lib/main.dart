@@ -2,12 +2,25 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:table_sticky_headers/table_sticky_headers.dart';
+import 'package:linked_scroll_controller/linked_scroll_controller.dart';
 void main() {
   runApp(const MyApp());
 }
 const String apiKey = '739f363ec2d1c6f66f0c78bd7c267476';
 const String geminiKey = 'AIzaSyBtLm3F8kcTZbsD_qYDXeZxdJh4J7KEcAI';
 const String geminiendpoint = 'https://generativelanguage.googleapis.com/v1alpha/projects/103820697394/locations/global/models/gemini-2.5:predict';
+
+// Use this constant to hold your key (passed via --dart-define)
+const _apiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: 'AIzaSyBtLm3F8kcTZbsD_qYDXeZxdJh4J7KEcAI');
+
+// Instantiate the model once outside the widget's build method
+// You should have already done this setup based on previous guidance.
+final _model = GenerativeModel(
+  model: 'gemini-2.5-flash',
+  apiKey: _apiKey,
+);
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -251,221 +264,206 @@ class Channels extends StatefulWidget {
   @override
   State<Channels> createState() => ChannelsState();
 }
+
 class ChannelsState extends State<Channels> {
   late Future<Map<String, List<Map<String, dynamic>>>> guideByChannel;
 
-  final ScrollController horizontalController = ScrollController();
+  late LinkedScrollControllerGroup _controllers;
+  late ScrollController _timeController;
+  late ScrollController _showsController;
 
   final Map<String, Color> providerColors = {
     'Netflix': Color.fromARGB(255, 109, 13, 10),
     'Amazon Prime Video': Color.fromARGB(255, 195, 169, 89),
     'Hulu': Color.fromARGB(255, 114, 157, 112),
     'Disney Plus': Color.fromARGB(255, 89, 137, 131),
-    'HBO Max': Color.fromARGB(255, 82, 75, 112),
     'Paramount Plus': Color.fromARGB(255, 73, 98, 154),
-    // Apple TV is excluded as it doesn't provide data
   };
 
   final Map<String, Color> providerText = {
-    'Netflix': Color.fromARGB(255, 255, 255, 255),
+    'Netflix': Colors.white,
     'Amazon Prime Video': Color.fromARGB(255, 100, 78, 13),
     'Hulu': Color.fromARGB(255, 38, 75, 61),
     'Disney Plus': Color.fromARGB(255, 45, 69, 66),
-    'HBO Max': Color.fromARGB(255, 255, 255, 255),
-    'Paramount Plus': Color.fromARGB(255, 255, 255, 255),
-    // Apple TV is excluded as it doesn't provide data
+    'Paramount Plus': Colors.white,
   };
 
   final Map<String, String> channelRename = {
-  "animation": "Animax",
-  "comedy": "Stand Up",
-  "sci-fi-fantasy": "Fantaverse",
-  "kids": "Bopple",
-  "documentary": "Lenscope",
-  "drama": "Velvet",
-  "mystery": "Ciphercast",
-  "reality-tv": "Mosaic",
-  "family": "FamilyTV",
-  "soap": "LatherLive",
-  "action-adventure": "Cliffhanger",
+    "animation": "Animax",
+    "comedy": "Stand Up",
+    "sci-fi-fantasy": "Fantaverse",
+    "kids": "Bopple",
+    "documentary": "Lenscope",
+    "drama": "Velvet",
+    "mystery": "Ciphercast",
+    "reality-tv": "Mosaic",
+    "family": "FamilyTV",
+    "soap": "LatherLive",
+    "action-adventure": "Cliffhanger",
   };
 
   final Map<String, IconData> channelIcons = {
-  "animation": Icons.catching_pokemon,
-  "comedy": Icons.tag_faces,
-  "sci-fi-fantasy": Icons.rocket_launch,
-  "kids": Icons.child_care_sharp,
-  "documentary": Icons.camera,
-  "drama": Icons.theater_comedy,
-  "mystery": Icons.fingerprint,
-  "reality-tv": Icons.chair_rounded,
-  "family": Icons.diversity_1,
-  "soap": Icons.follow_the_signs_rounded,
-  "action-adventure": Icons.directions_run,
+    "animation": Icons.catching_pokemon,
+    "comedy": Icons.tag_faces,
+    "sci-fi-fantasy": Icons.rocket_launch,
+    "kids": Icons.child_care_sharp,
+    "documentary": Icons.camera,
+    "drama": Icons.theater_comedy,
+    "mystery": Icons.fingerprint,
+    "reality-tv": Icons.chair_rounded,
+    "family": Icons.diversity_1,
+    "soap": Icons.follow_the_signs_rounded,
+    "action-adventure": Icons.directions_run,
   };
-
 
   @override
   void initState() {
     super.initState();
+
+    // Scroll controllers
+    _controllers = LinkedScrollControllerGroup();
+    _timeController = _controllers.addAndGet();
+    _showsController = _controllers.addAndGet();
+
+    // Load channels
     guideByChannel = getAllChannels(widget.selectedProviders);
-
   }
-Widget buildTimeRow() {
-  final times = [
-    "12:00", "12:30", "1:00", "1:30", "2:00", "2:30", "3:00", "3:30",
-    "4:00", "4:30", "5:00", "5:30", "6:00", "6:30", "7:00", "7:30",
-    "8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "11:30"
-  ];
 
-  return Container(
-    color: Color.fromRGBO(79, 77, 74, 1),
-    child: SingleChildScrollView(
-      controller: horizontalController,
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: times.map((t) {
-          return Container(
+  @override
+  void dispose() {
+    _timeController.dispose();
+    _showsController.dispose();
+    super.dispose();
+  }
+
+  Widget buildTimeRow() {
+    final times = [
+      "12:00", "12:30", "1:00", "1:30", "2:00", "2:30", "3:00", "3:30",
+      "4:00", "4:30", "5:00", "5:30", "6:00", "6:30", "7:00", "7:30",
+      "8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "11:30"
+    ];
+
+    return Container(
+      color: Color.fromRGBO(79, 77, 74, 1),
+      child: SingleChildScrollView(
+        controller: _timeController,
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: times.map((t) => Container(
             width: 120,
             padding: EdgeInsets.all(8),
             child: Text(
               t,
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
-          ),
-        );
-      }).toList(),
-    ),
-  ));
-}
+          )).toList(),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Access selectedProviders via widget.selectedProviders
-    //return const MyNavScaffold();
     return Scaffold(
-    backgroundColor: const Color(0xFFF0EDE9),
-    body: Container(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage("assets/velobg.png"),
-          //fit: BoxFit.cover,
-        ),
-      ),
-
-      
-      child: Center(
+      backgroundColor: const Color(0xFFF0EDE9),
+      body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: 1100),
           child: FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
             future: guideByChannel,
             builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No channels available'));
-          }
-          final channels = snapshot.data!;
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('No channels available'));
+              }
 
-          return SingleChildScrollView(
-            controller: horizontalController,
-
-            child: Column(
-              children: [
-                SizedBox(height: 120),  // <<< TOP SPACER
-                buildTimeRow(),
-                SizedBox(height: 20),  // <<< BOTTOM SPACER
-            ...channels.entries.map((channelEntry) {
-              //children: channels.entries.map((channelEntry) {
-            final rawChannelName = channelEntry.key;
-            final channelName = channelRename[rawChannelName] ?? rawChannelName;
-
-            final shows = channelEntry.value;
-            final channelIcon = channelIcons[rawChannelName];
-
-            return IntrinsicHeight(   // <-- makes children match tallest height
-
-  child: Row(
-    crossAxisAlignment: CrossAxisAlignment.stretch, // <-- stretch children vertically
-    children: [
-      Container(
-        width: 120,
-        color: Color.fromARGB(255, 101, 99, 96),
-        padding: EdgeInsets.all(8),
-        child: Row(
-          children: [
-            Icon(
-              channelIcon,
-              size: 20,
-              color: Colors.white,
-            ),
-            SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                channelName,
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-      ),
-      Expanded(
-        child: SingleChildScrollView(
-          controller: horizontalController,
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch, // <-- make blocks fill height
-            children: shows.map((show) {
-              final runtime = show['runtime'] as int;
-              const double pixelsPerMinute = 4.0;
-              final double width = runtime * pixelsPerMinute;
-
-              final provider = show['provider'];  
-              final Color blockColor = providerColors[provider] ?? Colors.grey;
-              final Color myColor = providerText[provider] ?? Colors.black;
-              
-              return Container(
-                width: width,
-                margin: EdgeInsets.all(2),
-                padding: EdgeInsets.all(8),
-                color: blockColor,
+              final channels = snapshot.data!;
+              return SingleChildScrollView(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      show['title'],
-                      style: TextStyle(fontSize: 12, color: myColor),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      "${show['provider']}",
-                      style: TextStyle(fontSize: 10, color: myColor),
-                    ),
+                    SizedBox(height: 20),
+                    buildTimeRow(),
+                    SizedBox(height: 20),
+                    ...channels.entries.map((channelEntry) {
+                      final rawChannelName = channelEntry.key;
+                      final channelName = channelRename[rawChannelName] ?? rawChannelName;
+                      final shows = channelEntry.value;
+                      final channelIcon = channelIcons[rawChannelName];
+
+                      return IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              width: 120,
+                              color: Color.fromARGB(255, 101, 99, 96),
+                              padding: EdgeInsets.all(8),
+                              child: Row(
+                                children: [
+                                  Icon(channelIcon, size: 20, color: Colors.white),
+                                  SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(channelName,
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: SingleChildScrollView(
+                                controller: _showsController,
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: shows.map((show) {
+                                    final runtime = show['runtime'] as int;
+                                    const double pixelsPerMinute = 4.0;
+                                    final double width = runtime * pixelsPerMinute;
+
+                                    final provider = show['provider'];
+                                    final String providerName = providertostring(provider);
+                                    final Color blockColor = providerColors[providerName] ?? Colors.grey;
+                                    final Color textColor = providerText[providerName] ?? Colors.black;
+
+                                    return Container(
+                                      width: width,
+                                      margin: EdgeInsets.all(2),
+                                      padding: EdgeInsets.all(8),
+                                      color: blockColor,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(show['title'], style: TextStyle(fontSize: 12, color: textColor), overflow: TextOverflow.ellipsis),
+                                          Text(providerName, style: TextStyle(fontSize: 10, color: textColor)),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
                   ],
                 ),
               );
-            }).toList(),
+            },
           ),
         ),
       ),
-    ],
-  ),
-);
-          }),
-        ]),
-      );
-      },
-    ),
-    ))));
+    );
   }
 }
+
 
 
 String providertostring(int providernum) {
@@ -477,9 +475,7 @@ String providertostring(int providernum) {
     return 'Hulu';
   } else if(providernum == 337) {
     return 'Disney Plus';
-  }else if(providernum == 384) {
-    return 'HBO Max';
-  } else if(providernum == 531) {
+  }else if(providernum == 531) {
     return 'Paramount Plus';
   }
   // appletv is a faker so it doesn't make the list (ㆆ_ㆆ)
@@ -504,7 +500,6 @@ class ProviderPage extends StatelessWidget {
     10: 'Amazon Prime Video',
     15: 'Hulu',
     337: 'Disney Plus',
-    384: 'HBO Max',
     531: 'Paramount Plus',
     // Apple TV is excluded as it doesn't provide data
   };
@@ -537,6 +532,7 @@ class ProviderPage extends StatelessWidget {
   }
 }
 
+
 class DeweyPage extends StatefulWidget {
   const DeweyPage({super.key});
 @override
@@ -558,6 +554,13 @@ class _DeweyPageState extends State<DeweyPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Add an initial message if the key isn't set
+    if (_apiKey.isEmpty && _messages.isEmpty) {
+      _messages.add(_Message(
+          content: '⚠️ Error: GEMINI_API_KEY is not set or defaulted. Please check configuration.',
+          isUser: false));
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Dewey')),
       body: Column(
@@ -565,6 +568,8 @@ class _DeweyPageState extends State<DeweyPage> {
           Expanded(
             child: ListView.builder(
               itemCount: _messages.length,
+              // Add key to ListView to allow for smooth scrolling to new messages
+              key: ValueKey(_messages.length), 
               itemBuilder: (context, index) {
                 final message = _messages[index];
                 return Align(
@@ -596,12 +601,16 @@ class _DeweyPageState extends State<DeweyPage> {
                       hintText: 'Ask Dewey...',
                       border: OutlineInputBorder(),
                     ),
+                    onSubmitted: _isLoading || _apiKey.isEmpty ? null : _sendMessage, // Allow sending via keyboard Enter
                   ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : () => _sendMessage(_controller.text),
-                  child: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator()) : const Text('Send'),
+                  // Disable button if loading or if API key is empty
+                  onPressed: _isLoading || _apiKey.isEmpty ? null : () => _sendMessage(_controller.text),
+                  child: _isLoading 
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
+                      : const Text('Send'),
                 ),
               ],
             ),
@@ -611,54 +620,56 @@ class _DeweyPageState extends State<DeweyPage> {
     );
   }
 
+  @override
   Future<void> _sendMessage(String message) async {
-  if (message.isEmpty) return;
-  setState(() {
-    _isLoading = true;
-    _messages.add(_Message(content: message, isUser: true));
-    _controller.clear();
-  });
+    if (message.isEmpty || _apiKey.isEmpty) return;
 
-  final prompt = """Your name is Dewey (short for Dewey Decimal). Basically, you are a helpful librarian/friend who helps people with book recommendations, finding books, and general book-related inquiries. You also have a great list of movies and TV shows to recommend, but you make sure you know what someone wants before spiraling off on a tangent. You are friendly, knowledgeable, and always eager to assist users in discovering new books and authors based on their interests. User asked: "$message" """;
+    // 1. Add User Message and Show Loading
+    setState(() {
+      _isLoading = true;
+      _messages.add(_Message(content: message, isUser: true));
+      _controller.clear();
+    });
 
-  try {
-    final response = await http.post(
-      Uri.parse(geminiendpoint.trim()), // remove any trailing space
-      headers: {
-        'Authorization': 'Bearer $geminiKey',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        "prompt": {"text": prompt},
-        "temperature": 0.7,
-        "candidate_count": 1,
-      }),
-    );
+    // 2. Define the AI's Persona (System Instruction - prepended for v0.4.7 compatibility)
+    const systemInstruction = 
+      "Your name is Dewey (short for Dewey Decimal). Basically, you are a helpful librarian/friend who helps people with book recommendations, finding books, and general book-related inquiries. You also have a great list of movies and TV shows to recommend, but you make sure you know what someone wants before spiraling off on a tangent. You are friendly, knowledgeable, and always eager to assist users in discovering new books and authors based on their interests. ";
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final geminiReply = data['candidates']?[0]?['output'] ??
-          'Hmm… I couldn’t find an answer.';
+    // Combine the persona instruction with the user's message
+    final fullPrompt = "$systemInstruction\n\nUser Question: $message";
+    
+    // Add logging to help with debugging the next time it gets stuck
+    print('Sending prompt of ${fullPrompt.length} characters...');
+
+    try {
+      // Call generateContent using the v0.4.7 compatible structure
+      final response = await _model.generateContent(
+        [Content.text(fullPrompt)], 
+      );
+
+      // 5. Extract Reply and Update UI
+      final geminiReply = response.text ?? 'Hmm… I couldn’t find an answer.';
+      print('Received reply: ${geminiReply.substring(0, min(50, geminiReply.length))}...');
 
       setState(() {
         _messages.add(_Message(content: geminiReply, isUser: false));
-        _isLoading = false;
       });
-    } else {
+
+    } catch (e) {
+      // 6. Handle API/Network Errors
+      print('GEMINI API Request Failed with Exception: $e');
       setState(() {
-        _messages.add(_Message(
-            content:
-                'Error: ${response.statusCode} ${response.reasonPhrase}',
-            isUser: false));
+        _messages.add(_Message(content: 'Request failed: $e', isUser: false));
+      });
+    } finally {
+      // 7. Ensure loading state is turned off
+      setState(() {
         _isLoading = false;
       });
     }
-  } catch (e) {
-    setState(() {
-      _messages.add(_Message(content: 'Request failed: $e', isUser: false));
-      _isLoading = false;
-    });
   }
 }
-}
 //ITS OKAYYYY ദ്ദി(ᵔᗜᵔ) 
+// YOU CAN DO ITTTT
+// I BELIEVE IN YOUUUU
+//flutter run --dart-define="GEMINI_API_KEY=AIzaSyBtLm3F8kcTZbsD_qYDXeZxdJh4J7KEcAI"
