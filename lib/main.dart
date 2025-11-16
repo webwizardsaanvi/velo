@@ -66,32 +66,52 @@ class _MyHomePageState extends State<MyHomePage> {
         onTap: (i) => setState(() => index = i),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.tv), label: "Guide"),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Providers"),
+          BottomNavigationBarItem(icon: Icon(Icons.tv), label: "Guide"),
+          BottomNavigationBarItem(icon: Icon(Icons.cable_rounded), label: "Providers"),
         ],
       ),
     );
   }
 }
 
-Future<List<Map<String, dynamic>>> fetchShows(int provider, String? genre, String? country) async{
-  final page = Random().nextInt(5) + 1;
-  
-  String url = 'https://api.themoviedb.org/3/discover/tv?api_key=$apiKey&with_watch_providers=$provider&watch_region=US&page=$page';
-  
-  if(genre != null){
-    url += '&with_genres=$genre';
-  }
-  if(country != null){
-    url += '&origin_country=$country';
-  }
-  final response = await http.get(Uri.parse(url));
-  
-  if(response.statusCode == 200){
-    final data = jsonDecode(response.body);
-    return data['results'].map<Map<String, dynamic>>((show) => {'title': show['name'] ?? show['title'], 'runtime': (show['episode_run_time'] != null && show['episode_run_time'].length > 0) ? show['episode_run_time'][0] : Random().nextInt(30) + 20, 'provider_number': provider, 'provider': providertostring(provider), 'genre': genre, 'country': country}).toList();
+Future<List<Map<String, dynamic>>> fetchShows(
+  int provider, 
+  String? genre, 
+  String? country, {
+  int maxPages = 3, // number of pages to fetch per provider
+}) async {
+  List<Map<String, dynamic>> allShows = [];
 
+  for (int page = 1; page <= maxPages; page++) {
+    String url =
+        'https://api.themoviedb.org/3/discover/tv?api_key=$apiKey&with_watch_providers=$provider&watch_region=US&page=$page';
+
+    if (genre != null) url += '&with_genres=$genre';
+    if (country != null) url += '&origin_country=$country';
+
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final results = data['results'] as List<dynamic>;
+      final shows = results.map<Map<String, dynamic>>((show) {
+        return {
+          'title': show['name'] ?? show['title'],
+          'runtime': (show['episode_run_time'] != null && show['episode_run_time'].length > 0)
+              ? show['episode_run_time'][0]
+              : Random().nextInt(30) + 20,
+          'provider_number': provider,
+          'provider': providertostring(provider),
+          'genre': genre,
+          'country': country,
+        };
+      }).toList();
+      allShows.addAll(shows);
+    }
   }
-  return [];
+
+  allShows.shuffle(); // randomize order
+  return allShows;
 }
 
 Future<Map<String, List<Map<String, dynamic>>>> getAllChannels(
@@ -99,27 +119,24 @@ Future<Map<String, List<Map<String, dynamic>>>> getAllChannels(
 ) async {
   // 1. Genre definitions
   final Map<String, Map<String, String?>> genreMap = {
-    'kdrama':            { 'genre': '18',    'country': 'KR' },
-    'animation':         { 'genre': '16',    'country': null },
-    'comedy':            { 'genre': '35',    'country': null },
-    'sci-fi-fantasy':    { 'genre': '10765', 'country': null },
-    'kids':              { 'genre': '10762', 'country': null },
-    'documentary':       { 'genre': '99',    'country': null },
-    'drama':             { 'genre': '18',    'country': null },
-    'horror':            { 'genre': '27',    'country': null },
-    'mystery':           { 'genre': '9648',  'country': null },
-    'reality-tv':        { 'genre': '10764', 'country': null },
-    'romance':           { 'genre': '10749', 'country': null },
-    'family':            { 'genre': '10751', 'country': null },
-    'soap':              { 'genre': '10766', 'country': null },
-    'music-vids':        { 'genre': '10402', 'country': null },
-    'action-adventure':  { 'genre': '10759', 'country': null },
+    //'kdrama':            { 'genre': '18',    'country': 'KR' }, //projectrose
+    //'anime':             { 'genre': '16',    'country':  'JP' },
+    'animation':         { 'genre': '16',    'country':  'US' },
+    'comedy':            { 'genre': '35',    'country': 'US' }, //stnad up
+    'sci-fi-fantasy':    { 'genre': '10765', 'country': 'US' }, // fantaverse
+    'kids':              { 'genre': '10762', 'country': 'US' }, //bopple
+    'documentary':       { 'genre': '99',    'country': 'US' }, //lenscape
+    'drama':             { 'genre': '18',    'country': 'US' }, //velvet
+    'mystery':           { 'genre': '9648',  'country': 'US' }, //ciphercast
+    'reality-tv':        { 'genre': '10764', 'country': 'US' }, //mosaic
+    'family':            { 'genre': '10751', 'country': 'US' }, //FamilyTV
+    'soap':              { 'genre': '10766', 'country': 'US' }, //LatherLive
+    //'music-vids':        { 'genre': '10402', 'country': 'US' }, //Wavenote
+    'action-adventure':  { 'genre': '10759', 'country': 'US' }, //Cliffhanger
   };
-
-  // 2. Final result
+  
   final Map<String, List<Map<String, dynamic>>> channels = {};
 
-  // 3. Build each genre channel
   for (var genreKey in genreMap.keys) {
     final genreData = genreMap[genreKey]!;
     final String? tmdbGenre = genreData['genre'];
@@ -127,12 +144,25 @@ Future<Map<String, List<Map<String, dynamic>>>> getAllChannels(
 
     List<Map<String, dynamic>> channelShows = [];
 
-    // 4. Only apply selected providers
     for (var provider in selectedProviders) {
-      final shows = await fetchShows(provider, tmdbGenre, country);
-      channelShows.addAll(shows);
+      try {
+        final shows = await fetchShows(provider, tmdbGenre, country);
+
+        final filteredShows = shows.where((show) {
+        if (genreKey == 'kids') return show['genre'] == tmdbGenre;
+        if (genreKey == 'animation' || genreKey == 'anime') {
+          return show['genre'] != '10762';
+        }
+        return true;
+      }).toList();
+
+        channelShows.addAll(filteredShows);
+      } catch (e) {
+        //print("Error fetching shows for $genreKey on provider $provider: $e");
+      }
     }
 
+    channelShows.shuffle(); 
     channels[genreKey] = channelShows;
   }
 
@@ -167,7 +197,7 @@ class _MyNavScaffoldState extends State<MyNavScaffold> {
 
   final List<Widget> _pages = [
     //Placeholder(), // Not used, dummy
-    const Channels(title: 'Channels', selectedProviders: {8, 119}), // Example with Netflix and Amazon Prime Video
+    const Channels(title: 'Channels', selectedProviders: {8, 10, 15, 337, 384, 531}), // Example with Netflix and Amazon Prime Video
     Placeholder(),
     Placeholder(),
     Placeholder()
@@ -209,6 +239,26 @@ class Channels extends StatefulWidget {
 class ChannelsState extends State<Channels> {
   late Future<Map<String, List<Map<String, dynamic>>>> guideByChannel;
 
+  final Map<String, Color> providerColors = {
+    'Netflix': Color.fromARGB(255, 109, 13, 10),
+    'Amazon Prime Video': Color.fromARGB(255, 195, 169, 89),
+    'Hulu': Color.fromARGB(255, 114, 157, 112),
+    'Disney Plus': Color.fromARGB(255, 89, 137, 131),
+    'HBO Max': Color.fromARGB(255, 82, 75, 112),
+    'Paramount Plus': Color.fromARGB(255, 73, 98, 154),
+    // Apple TV is excluded as it doesn't provide data
+  };
+
+  final Map<String, Color> providerText = {
+    'Netflix': Color.fromARGB(255, 255, 255, 255),
+    'Amazon Prime Video': Color.fromARGB(255, 100, 78, 13),
+    'Hulu': Color.fromARGB(255, 38, 75, 61),
+    'Disney Plus': Color.fromARGB(255, 45, 69, 66),
+    'HBO Max': Color.fromARGB(255, 255, 255, 255),
+    'Paramount Plus': Color.fromARGB(255, 255, 255, 255),
+    // Apple TV is excluded as it doesn't provide data
+  };
+
   @override
   void initState() {
     super.initState();
@@ -243,53 +293,61 @@ class ChannelsState extends State<Channels> {
             final channelName = channelEntry.key;
             final shows = channelEntry.value;
 
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [Container(
-                width: 120,
-                color: Colors.grey[300],
-                padding: EdgeInsets.all(8),
-                child: Text(
-                  channelName,
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
+            return IntrinsicHeight(   // <-- makes children match tallest height
+  child: Row(
+    crossAxisAlignment: CrossAxisAlignment.stretch, // <-- stretch children vertically
+    children: [
+      Container(
+        width: 120,
+        color: Colors.grey[300],
+        padding: EdgeInsets.all(8),
+        child: Text(
+          channelName,
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+      Expanded(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch, // <-- make blocks fill height
+            children: shows.map((show) {
+              final runtime = show['runtime'] as int;
+              const double pixelsPerMinute = 4.0;
+              final double width = runtime * pixelsPerMinute;
+
+              final provider = show['provider'];  
+              final Color blockColor = providerColors[provider] ?? Colors.grey;
+              final Color myColor = providerText[provider] ?? Colors.black;
               
-              Expanded(
-                child:SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: shows.map((show) {
-                      final runtime = show['runtime'] as int;
-                      const double pixelsPerMinute = 4.0;
-                      final double width = runtime * pixelsPerMinute;
-                      
-                      return Container(
-                        width: width,
-                        margin: EdgeInsets.all(2),
-                        padding: EdgeInsets.all(8),
-                        color: Colors.blue[200],
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              show['title'],
-                              style: TextStyle(fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              "${show['provider']}",
-                              style: TextStyle(fontSize: 10),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
+              return Container(
+                width: width,
+                margin: EdgeInsets.all(2),
+                padding: EdgeInsets.all(8),
+                color: blockColor,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      show['title'],
+                      style: TextStyle(fontSize: 12, color: myColor),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      "${show['provider']}",
+                      style: TextStyle(fontSize: 10, color: myColor),
+                    ),
+                  ],
                 ),
-              ),    
-              ],
-            );
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    ],
+  ),
+);
           }).toList(),
         ),
       );
@@ -303,18 +361,16 @@ class ChannelsState extends State<Channels> {
 String providertostring(int providernum) {
   if(providernum == 8) {
     return 'Netflix';
-  } else if(providernum == 119) {
+  } else if(providernum == 10) {
     return 'Amazon Prime Video';
   } else if(providernum == 15) {
     return 'Hulu';
-  } else if(providernum == 9) {
+  } else if(providernum == 337) {
     return 'Disney Plus';
   }else if(providernum == 384) {
     return 'HBO Max';
   } else if(providernum == 531) {
     return 'Paramount Plus';
-  } else if(providernum == 192) {
-    return 'Youtube';
   }
   // appletv is a faker so it doesn't make the list (ㆆ_ㆆ)
    else {
@@ -335,12 +391,11 @@ class ProviderPage extends StatelessWidget {
 
   final Map<int, String> providerMap = {
     8: 'Netflix',
-    119: 'Amazon Prime Video',
+    10: 'Amazon Prime Video',
     15: 'Hulu',
-    9: 'Disney Plus',
+    337: 'Disney Plus',
     384: 'HBO Max',
     531: 'Paramount Plus',
-    192: 'Youtube',
     // Apple TV is excluded as it doesn't provide data
   };
   
@@ -367,5 +422,7 @@ class ProviderPage extends StatelessWidget {
     );
   }
 }
+
+
 
 //ITS OKAYYYY ദ്ദി(ᵔᗜᵔ) 
