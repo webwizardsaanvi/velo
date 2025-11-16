@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:table_sticky_headers/table_sticky_headers.dart';
 import 'package:linked_scroll_controller/linked_scroll_controller.dart';
 void main() {
   runApp(const MyApp());
@@ -12,11 +11,8 @@ const String apiKey = '739f363ec2d1c6f66f0c78bd7c267476';
 const String geminiKey = 'AIzaSyBtLm3F8kcTZbsD_qYDXeZxdJh4J7KEcAI';
 const String geminiendpoint = 'https://generativelanguage.googleapis.com/v1alpha/projects/103820697394/locations/global/models/gemini-2.5:predict';
 
-// Use this constant to hold your key (passed via --dart-define)
 const _apiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: 'AIzaSyBtLm3F8kcTZbsD_qYDXeZxdJh4J7KEcAI');
 
-// Instantiate the model once outside the widget's build method
-// You should have already done this setup based on previous guidance.
 final _model = GenerativeModel(
   model: 'gemini-2.5-flash',
   apiKey: _apiKey,
@@ -25,28 +21,12 @@ final _model = GenerativeModel(
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
@@ -75,26 +55,6 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     ];
     return const MyNavScaffold();
-/*
-    return Scaffold(
-      body: pages[index],
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFF4F4D4A),
-        currentIndex: index,
-        onTap: (i) => setState(() => index = i),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white54,
-        selectedIconTheme: const IconThemeData(color: Colors.white),
-        unselectedIconTheme: const IconThemeData(color: Colors.white54),
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.tv), label: "Guide"),
-          BottomNavigationBarItem(icon: Icon(Icons.my_library_books_rounded), label: "Dewey"),
-          BottomNavigationBarItem(icon: Icon(Icons.cable_rounded), label: "Providers"),
-        ],
-      ),
-    );
-    );*/
   }
 }
 
@@ -102,7 +62,7 @@ Future<List<Map<String, dynamic>>> fetchShows(
   int provider, 
   String? genre, 
   String? country, {
-  int maxPages = 3, // number of pages to fetch per provider
+  int maxPages = 3, 
 }) async {
   List<Map<String, dynamic>> allShows = [];
 
@@ -140,7 +100,6 @@ Future<List<Map<String, dynamic>>> fetchShows(
 Future<Map<String, List<Map<String, dynamic>>>> getAllChannels(
   Set<int> selectedProviders,
 ) async {
-  // 1. Genre definitions
   final Map<String, Map<String, String?>> genreMap = {
     //'kdrama':            { 'genre': '18',    'country': 'KR' }, //projectrose
     //'anime':             { 'genre': '16',    'country':  'JP' },
@@ -267,7 +226,6 @@ class Channels extends StatefulWidget {
 class _ChannelsState extends State<Channels> {
   late Future<Map<String, List<Map<String, dynamic>>>> guideByChannel;
 
-  // Linked scroll controllers
   late LinkedScrollControllerGroup _controllers;
   late ScrollController _timeController;
   late ScrollController _showsController;
@@ -492,7 +450,6 @@ class ProviderPage extends StatelessWidget {
     15: 'Hulu',
     337: 'Disney Plus',
     531: 'Paramount Plus',
-    // Apple TV is excluded as it doesn't provide data
   };
   
   @override
@@ -545,7 +502,6 @@ class _DeweyPageState extends State<DeweyPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Add an initial message if the key isn't set
     if (_apiKey.isEmpty && _messages.isEmpty) {
       _messages.add(_Message(
           content: '⚠️ Error: GEMINI_API_KEY is not set or defaulted. Please check configuration.',
@@ -559,7 +515,6 @@ class _DeweyPageState extends State<DeweyPage> {
           Expanded(
             child: ListView.builder(
               itemCount: _messages.length,
-              // Add key to ListView to allow for smooth scrolling to new messages
               key: ValueKey(_messages.length), 
               itemBuilder: (context, index) {
                 final message = _messages[index];
@@ -592,12 +547,11 @@ class _DeweyPageState extends State<DeweyPage> {
                       hintText: 'Ask Dewey...',
                       border: OutlineInputBorder(),
                     ),
-                    onSubmitted: _isLoading || _apiKey.isEmpty ? null : _sendMessage, // Allow sending via keyboard Enter
+                    onSubmitted: _isLoading || _apiKey.isEmpty ? null : _sendMessage, 
                   ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  // Disable button if loading or if API key is empty
                   onPressed: _isLoading || _apiKey.isEmpty ? null : () => _sendMessage(_controller.text),
                   child: _isLoading 
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
@@ -615,30 +569,24 @@ class _DeweyPageState extends State<DeweyPage> {
   Future<void> _sendMessage(String message) async {
     if (message.isEmpty || _apiKey.isEmpty) return;
 
-    // 1. Add User Message and Show Loading
     setState(() {
       _isLoading = true;
       _messages.add(_Message(content: message, isUser: true));
       _controller.clear();
     });
 
-    // 2. Define the AI's Persona (System Instruction - prepended for v0.4.7 compatibility)
     const systemInstruction = 
       "Your name is Dewey (short for Dewey Decimal). Basically, you are a helpful librarian/friend who helps people with book recommendations, finding books, and general book-related inquiries. You also have a great list of movies and TV shows to recommend, but you make sure you know what someone wants before spiraling off on a tangent. You are friendly, knowledgeable, and always eager to assist users in discovering new books and authors based on their interests. ";
 
-    // Combine the persona instruction with the user's message
     final fullPrompt = "$systemInstruction\n\nUser Question: $message";
     
-    // Add logging to help with debugging the next time it gets stuck
     print('Sending prompt of ${fullPrompt.length} characters...');
 
     try {
-      // Call generateContent using the v0.4.7 compatible structure
       final response = await _model.generateContent(
         [Content.text(fullPrompt)], 
       );
 
-      // 5. Extract Reply and Update UI
       final geminiReply = response.text ?? 'Hmm… I couldn’t find an answer.';
       print('Received reply: ${geminiReply.substring(0, min(50, geminiReply.length))}...');
 
@@ -647,13 +595,11 @@ class _DeweyPageState extends State<DeweyPage> {
       });
 
     } catch (e) {
-      // 6. Handle API/Network Errors
-      print('GEMINI API Request Failed with Exception: $e');
+      //print('GEMINI API Request Failed with Exception: $e');
       setState(() {
         _messages.add(_Message(content: 'Request failed: $e', isUser: false));
       });
     } finally {
-      // 7. Ensure loading state is turned off
       setState(() {
         _isLoading = false;
       });
@@ -663,4 +609,4 @@ class _DeweyPageState extends State<DeweyPage> {
 //ITS OKAYYYY ദ്ദി(ᵔᗜᵔ) 
 // YOU CAN DO ITTTT
 // I BELIEVE IN YOUUUU
-//flutter run --dart-define="GEMINI_API_KEY=AIzaSyBtLm3F8kcTZbsD_qYDXeZxdJh4J7KEcAI"
+//use this to run: flutter run --dart-define="GEMINI_API_KEY=AIzaSyBtLm3F8kcTZbsD_qYDXeZxdJh4J7KEcAI"
