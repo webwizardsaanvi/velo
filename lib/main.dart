@@ -6,6 +6,9 @@ void main() {
   runApp(const MyApp());
 }
 const String apiKey = '739f363ec2d1c6f66f0c78bd7c267476';
+const String geminiKey = 'AIzaSyBtLm3F8kcTZbsD_qYDXeZxdJh4J7KEcAI';
+const String geminiendpoint = 'https://generativelanguage.googleapis.com/v1alpha/projects/103820697394/locations/global/models/gemini-2.5:predict';
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -58,19 +61,27 @@ class _MyHomePageState extends State<MyHomePage> {
         },
       ),
     ];
-
+    return const MyNavScaffold();
+/*
     return Scaffold(
       body: pages[index],
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: const Color(0xFF4F4D4A),
         currentIndex: index,
         onTap: (i) => setState(() => index = i),
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white54,
+        selectedIconTheme: const IconThemeData(color: Colors.white),
+        unselectedIconTheme: const IconThemeData(color: Colors.white54),
+        showUnselectedLabels: true,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.tv), label: "Guide"),
-          BottomNavigationBarItem(icon: Icon(Icons.tv), label: "Guide"),
+          BottomNavigationBarItem(icon: Icon(Icons.my_library_books_rounded), label: "Dewey"),
           BottomNavigationBarItem(icon: Icon(Icons.cable_rounded), label: "Providers"),
         ],
       ),
     );
+    );*/
   }
 }
 
@@ -179,28 +190,32 @@ class MyNavScaffold extends StatefulWidget {
 class _MyNavScaffoldState extends State<MyNavScaffold> {
   int _selectedIndex = 1;
 
+  Set<int> _selectedProviders = {8, 10, 15, 337, 384, 531};
+
+  void _onProvidersChanged(Set<int> newSet) {
+    setState(() {
+      _selectedProviders = newSet;
+    });
+  }
+
   final List<IconData> _icons = [
     //Icons.source,
     //Icons.lightbulb,
     Icons.tv_rounded,
     Icons.my_library_books,
-    Icons.star_border_purple500,
     Icons.cable_rounded
   ];
 
   final List<String> _labels = [
     'Channels',
     'Dewey',
-    '~Ratings',
     'Providers'
   ];
 
-  final List<Widget> _pages = [
-    //Placeholder(), // Not used, dummy
-    const Channels(title: 'Channels', selectedProviders: {8, 10, 15, 337, 384, 531}), // Example with Netflix and Amazon Prime Video
-    Placeholder(),
-    Placeholder(),
-    Placeholder()
+  List<Widget> get _pages => [
+    Channels(title: 'Channels', selectedProviders: _selectedProviders),
+    const DeweyPage(),
+    ProviderPage(selectedProviders: _selectedProviders, onSelectionChanged: _onProvidersChanged),
   ];
 
   void _onItemTapped(int index) {
@@ -239,6 +254,8 @@ class Channels extends StatefulWidget {
 class ChannelsState extends State<Channels> {
   late Future<Map<String, List<Map<String, dynamic>>>> guideByChannel;
 
+  final ScrollController horizontalController = ScrollController();
+
   final Map<String, Color> providerColors = {
     'Netflix': Color.fromARGB(255, 109, 13, 10),
     'Amazon Prime Video': Color.fromARGB(255, 195, 169, 89),
@@ -259,24 +276,92 @@ class ChannelsState extends State<Channels> {
     // Apple TV is excluded as it doesn't provide data
   };
 
+  final Map<String, String> channelRename = {
+  "animation": "Animax",
+  "comedy": "Stand Up",
+  "sci-fi-fantasy": "Fantaverse",
+  "kids": "Bopple",
+  "documentary": "Lenscope",
+  "drama": "Velvet",
+  "mystery": "Ciphercast",
+  "reality-tv": "Mosaic",
+  "family": "FamilyTV",
+  "soap": "LatherLive",
+  "action-adventure": "Cliffhanger",
+  };
+
+  final Map<String, IconData> channelIcons = {
+  "animation": Icons.catching_pokemon,
+  "comedy": Icons.tag_faces,
+  "sci-fi-fantasy": Icons.rocket_launch,
+  "kids": Icons.child_care_sharp,
+  "documentary": Icons.camera,
+  "drama": Icons.theater_comedy,
+  "mystery": Icons.fingerprint,
+  "reality-tv": Icons.chair_rounded,
+  "family": Icons.diversity_1,
+  "soap": Icons.follow_the_signs_rounded,
+  "action-adventure": Icons.directions_run,
+  };
+
+
   @override
   void initState() {
     super.initState();
     guideByChannel = getAllChannels(widget.selectedProviders);
 
   }
+Widget buildTimeRow() {
+  final times = [
+    "12:00", "12:30", "1:00", "1:30", "2:00", "2:30", "3:00", "3:30",
+    "4:00", "4:30", "5:00", "5:30", "6:00", "6:30", "7:00", "7:30",
+    "8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "11:30"
+  ];
+
+  return Container(
+    color: Color.fromRGBO(79, 77, 74, 1),
+    child: SingleChildScrollView(
+      controller: horizontalController,
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: times.map((t) {
+          return Container(
+            width: 120,
+            padding: EdgeInsets.all(8),
+            child: Text(
+              t,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      }).toList(),
+    ),
+  ));
+}
 
   @override
   Widget build(BuildContext context) {
     // Access selectedProviders via widget.selectedProviders
     //return const MyNavScaffold();
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
+    backgroundColor: const Color(0xFFF0EDE9),
+    body: Container(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage("assets/velobg.png"),
+          //fit: BoxFit.cover,
+        ),
       ),
-      body: FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
-        future: guideByChannel,
-        builder: (context, snapshot) {
+
+      
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 1100),
+          child: FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
+            future: guideByChannel,
+            builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -287,27 +372,52 @@ class ChannelsState extends State<Channels> {
             return const Center(child: Text('No channels available'));
           }
           final channels = snapshot.data!;
+
           return SingleChildScrollView(
+            controller: horizontalController,
+
             child: Column(
-              children: channels.entries.map((channelEntry) {
-            final channelName = channelEntry.key;
+              children: [
+                SizedBox(height: 120),  // <<< TOP SPACER
+                buildTimeRow(),
+                SizedBox(height: 20),  // <<< BOTTOM SPACER
+            ...channels.entries.map((channelEntry) {
+              //children: channels.entries.map((channelEntry) {
+            final rawChannelName = channelEntry.key;
+            final channelName = channelRename[rawChannelName] ?? rawChannelName;
+
             final shows = channelEntry.value;
+            final channelIcon = channelIcons[rawChannelName];
 
             return IntrinsicHeight(   // <-- makes children match tallest height
+
   child: Row(
     crossAxisAlignment: CrossAxisAlignment.stretch, // <-- stretch children vertically
     children: [
       Container(
         width: 120,
-        color: Colors.grey[300],
+        color: Color.fromARGB(255, 101, 99, 96),
         padding: EdgeInsets.all(8),
-        child: Text(
-          channelName,
-          style: TextStyle(fontWeight: FontWeight.bold),
+        child: Row(
+          children: [
+            Icon(
+              channelIcon,
+              size: 20,
+              color: Colors.white,
+            ),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                channelName,
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+          ],
         ),
       ),
       Expanded(
         child: SingleChildScrollView(
+          controller: horizontalController,
           scrollDirection: Axis.horizontal,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch, // <-- make blocks fill height
@@ -348,13 +458,13 @@ class ChannelsState extends State<Channels> {
     ],
   ),
 );
-          }).toList(),
-        ),
+          }),
+        ]),
       );
       },
     ),
-    );
-}
+    ))));
+  }
 }
 
 
@@ -402,8 +512,11 @@ class ProviderPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Select Providers")),
-      body: ListView(
+      backgroundColor: const Color(0xFFF0EDE9),
+      
+      body: Container(
+      
+      child: ListView(
         children: providerMap.entries.map((entry) {
           final id = entry.key;
           final name = entry.value;
@@ -419,10 +532,133 @@ class ProviderPage extends StatelessWidget {
           );
         }).toList(),
       ),
+    )
     );
   }
 }
 
+class DeweyPage extends StatefulWidget {
+  const DeweyPage({super.key});
+@override
+  State<DeweyPage> createState() => _DeweyPageState();
+}
 
+class _Message {
+  final String content;
+  final bool isUser;
 
+  _Message({required this.content, required this.isUser});
+}
+
+class _DeweyPageState extends State<DeweyPage> {
+  final TextEditingController _controller = TextEditingController();
+  final List<_Message> _messages = [];
+
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Dewey')),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                final message = _messages[index];
+                return Align(
+                  alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: message.isUser ? Colors.blue : Colors.grey,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      message.content,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: const InputDecoration(
+                      hintText: 'Ask Dewey...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : () => _sendMessage(_controller.text),
+                  child: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator()) : const Text('Send'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendMessage(String message) async {
+  if (message.isEmpty) return;
+  setState(() {
+    _isLoading = true;
+    _messages.add(_Message(content: message, isUser: true));
+    _controller.clear();
+  });
+
+  final prompt = """Your name is Dewey (short for Dewey Decimal). Basically, you are a helpful librarian/friend who helps people with book recommendations, finding books, and general book-related inquiries. You also have a great list of movies and TV shows to recommend, but you make sure you know what someone wants before spiraling off on a tangent. You are friendly, knowledgeable, and always eager to assist users in discovering new books and authors based on their interests. User asked: "$message" """;
+
+  try {
+    final response = await http.post(
+      Uri.parse(geminiendpoint.trim()), // remove any trailing space
+      headers: {
+        'Authorization': 'Bearer $geminiKey',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        "prompt": {"text": prompt},
+        "temperature": 0.7,
+        "candidate_count": 1,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final geminiReply = data['candidates']?[0]?['output'] ??
+          'Hmm… I couldn’t find an answer.';
+
+      setState(() {
+        _messages.add(_Message(content: geminiReply, isUser: false));
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _messages.add(_Message(
+            content:
+                'Error: ${response.statusCode} ${response.reasonPhrase}',
+            isUser: false));
+        _isLoading = false;
+      });
+    }
+  } catch (e) {
+    setState(() {
+      _messages.add(_Message(content: 'Request failed: $e', isUser: false));
+      _isLoading = false;
+    });
+  }
+}
+}
 //ITS OKAYYYY ദ്ദി(ᵔᗜᵔ) 
