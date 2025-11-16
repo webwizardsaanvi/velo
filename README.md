@@ -1,16 +1,7 @@
-# guide
+# Velo
 
-A new Flutter project.
+We were inspired by two things: the old TV guides that would be mailed to one's doorstep in the 1980s and 1990s, as well as the more recent TV Channel Guide on Cable TV.
 
-## Getting Started
+Now, instead of having these predetermined lists of what to watch, we have to choose what to watch from the many streaming services in our region, and we are even recommended shows or movies based on algorithms that sometimes do not make sense.
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Therefore, we made Velo. A channel guide and recommendation list that combines this part of media past and present in the best way possible. Access a channel guide of random suggestions, or talk to AI Dewey, your personal librarian, who is ready to recommend anything from books to shows and movies from any era.
