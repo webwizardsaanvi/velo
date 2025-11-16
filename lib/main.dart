@@ -119,17 +119,16 @@ Future<List<Map<String, dynamic>>> fetchShows(
       final data = jsonDecode(response.body);
       final results = data['results'] as List<dynamic>;
       final shows = results.map<Map<String, dynamic>>((show) {
-        return {
-          'title': show['name'] ?? show['title'],
-          'runtime': (show['episode_run_time'] != null && show['episode_run_time'].length > 0)
-              ? show['episode_run_time'][0]
-              : Random().nextInt(30) + 20,
-          'provider_number': provider,
-          'provider': providertostring(provider),
-          'genre': genre,
-          'country': country,
-        };
-      }).toList();
+  return {
+    'title': show['name'] ?? show['title'],
+    'runtime': (show['episode_run_time'] != null && show['episode_run_time'].length > 0)
+        ? show['episode_run_time'][0]
+        : Random().nextInt(30) + 20,
+    'provider': provider, // store int only
+    'genre': genre,
+    'country': country,
+  };
+}).toList();
       allShows.addAll(shows);
     }
   }
@@ -262,12 +261,13 @@ class Channels extends StatefulWidget {
   final Set<int> selectedProviders;
 
   @override
-  State<Channels> createState() => ChannelsState();
+  State<Channels> createState() => _ChannelsState();
 }
 
-class ChannelsState extends State<Channels> {
+class _ChannelsState extends State<Channels> {
   late Future<Map<String, List<Map<String, dynamic>>>> guideByChannel;
 
+  // Linked scroll controllers
   late LinkedScrollControllerGroup _controllers;
   late ScrollController _timeController;
   late ScrollController _showsController;
@@ -319,13 +319,9 @@ class ChannelsState extends State<Channels> {
   @override
   void initState() {
     super.initState();
-
-    // Scroll controllers
     _controllers = LinkedScrollControllerGroup();
     _timeController = _controllers.addAndGet();
     _showsController = _controllers.addAndGet();
-
-    // Load channels
     guideByChannel = getAllChannels(widget.selectedProviders);
   }
 
@@ -338,24 +334,22 @@ class ChannelsState extends State<Channels> {
 
   Widget buildTimeRow() {
     final times = [
-      "12:00", "12:30", "1:00", "1:30", "2:00", "2:30", "3:00", "3:30",
-      "4:00", "4:30", "5:00", "5:30", "6:00", "6:30", "7:00", "7:30",
-      "8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "11:30"
+      "12:00","12:30","1:00","1:30","2:00","2:30","3:00","3:30",
+      "4:00","4:30","5:00","5:30","6:00","6:30","7:00","7:30",
+      "8:00","8:30","9:00","9:30","10:00","10:30","11:00","11:30"
     ];
 
     return Container(
       color: Color.fromRGBO(79, 77, 74, 1),
+      height: 40,
       child: SingleChildScrollView(
         controller: _timeController,
         scrollDirection: Axis.horizontal,
         child: Row(
           children: times.map((t) => Container(
             width: 120,
-            padding: EdgeInsets.all(8),
-            child: Text(
-              t,
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
+            alignment: Alignment.center,
+            child: Text(t, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           )).toList(),
         ),
       ),
@@ -366,7 +360,8 @@ class ChannelsState extends State<Channels> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF0EDE9),
-      body: Center(
+      body: Container( decoration: BoxDecoration( image: DecorationImage( image: AssetImage("assets/velobg.png") ), ),
+        child: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: 1100),
           child: FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
@@ -383,84 +378,80 @@ class ChannelsState extends State<Channels> {
               }
 
               final channels = snapshot.data!;
-              return SingleChildScrollView(
-                child: Column(
-                  children: [
-                    SizedBox(height: 20),
-                    buildTimeRow(),
-                    SizedBox(height: 20),
-                    ...channels.entries.map((channelEntry) {
-                      final rawChannelName = channelEntry.key;
-                      final channelName = channelRename[rawChannelName] ?? rawChannelName;
-                      final shows = channelEntry.value;
-                      final channelIcon = channelIcons[rawChannelName];
+              return Column(
+                children: [
+                  SizedBox(height: 120),
+                  buildTimeRow(),
+                  SizedBox(height: 20),
+                  Expanded(
+                    child: ListView(
+                      children: channels.entries.map((entry) {
+                        final rawChannelName = entry.key;
+                        final channelName = channelRename[rawChannelName] ?? rawChannelName;
+                        final shows = entry.value;
+                        final channelIcon = channelIcons[rawChannelName];
 
-                      return IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Container(
-                              width: 120,
-                              color: Color.fromARGB(255, 101, 99, 96),
-                              padding: EdgeInsets.all(8),
-                              child: Row(
-                                children: [
-                                  Icon(channelIcon, size: 20, color: Colors.white),
-                                  SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(channelName,
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: SingleChildScrollView(
-                                controller: _showsController,
-                                scrollDirection: Axis.horizontal,
+                        return IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                width: 120,
+                                color: Color.fromARGB(255, 101, 99, 96),
+                                padding: EdgeInsets.all(8),
                                 child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: shows.map((show) {
-                                    final runtime = show['runtime'] as int;
-                                    const double pixelsPerMinute = 4.0;
-                                    final double width = runtime * pixelsPerMinute;
-
-                                    final provider = show['provider'];
-                                    final String providerName = providertostring(provider);
-                                    final Color blockColor = providerColors[providerName] ?? Colors.grey;
-                                    final Color textColor = providerText[providerName] ?? Colors.black;
-
-                                    return Container(
-                                      width: width,
-                                      margin: EdgeInsets.all(2),
-                                      padding: EdgeInsets.all(8),
-                                      color: blockColor,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Text(show['title'], style: TextStyle(fontSize: 12, color: textColor), overflow: TextOverflow.ellipsis),
-                                          Text(providerName, style: TextStyle(fontSize: 10, color: textColor)),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
+                                  children: [
+                                    Icon(channelIcon, size: 20, color: Colors.white),
+                                    SizedBox(width: 6),
+                                    Expanded(child: Text(channelName, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                                  ],
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ],
-                ),
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  controller: _showsController,
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: shows.map((show) {
+                                      final runtime = show['runtime'] is int ? show['runtime'] as int : 30;
+                                      final double width = runtime * 4.0;
+
+                                      final providerNum = show['provider'] as int;
+final providerName = providertostring(providerNum);
+final Color blockColor = providerColors[providerName] ?? Colors.grey;
+final Color textColor = providerText[providerName] ?? Colors.black;
+
+                                      return Container(
+                                        width: width,
+                                        margin: EdgeInsets.all(2),
+                                        padding: EdgeInsets.all(8),
+                                        color: blockColor,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(show['title'], style: TextStyle(fontSize: 12, color: textColor), overflow: TextOverflow.ellipsis),
+                                            Text(providerName, style: TextStyle(fontSize: 10, color: textColor)),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
               );
             },
           ),
         ),
       ),
-    );
+    ));
   }
 }
 
